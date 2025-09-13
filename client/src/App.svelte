@@ -1,34 +1,39 @@
 <script lang="ts">
+  import Sidebar from './lib/components/Sidebar.svelte';
+  import Tabletop from './lib/components/Tabletop.svelte';
   import { onMount } from 'svelte';
-  import { io } from 'socket.io-client';
+  import { socket } from './lib/socket';
 
-  // サーバーのURLを指定して接続
-  const socket = io('http://localhost:3000');
+  // URLからルームIDを取得する
+  // もしIDがなければ、'default-room'に入る
+  const pathSegments = window.location.pathname.split('/').filter(Boolean);
+  const roomId = pathSegments.length > 1 && pathSegments[0] === 'room'
+    ? pathSegments[1]
+    : 'default-room';
 
-  let connectionStatus = '接続中...';
-
-  // 接続成功
-  socket.on('connect', () => {
-    connectionStatus = `サーバーに接続しました。\n(ID: ${socket.id})`;
-    console.log('接続成功！');
+  onMount(() => {
+    socket.on('connect', () => {
+      console.log('サーバーに接続しました。ルームに参加します...');
+      // サーバーにルームへの参加を伝える
+      socket.emit('joinRoom', roomId);
+    });
   });
-
-  // 接続失敗
-  socket.on('connect_error', (err) => {
-    connectionStatus = 'サーバーへの接続に失敗しました。';
-    console.error('接続エラー:', err.message);
-  });
-
 </script>
 
-<main>
-  <h1>Session Hub</h1>
-  <p>ステータス: {connectionStatus}</p>
-</main>
+<div class="app-container">
+  <Sidebar />
+  <Tabletop {roomId} />
+</div>
 
 <style>
-  main {
-    font-family: sans-serif;
-    text-align: center;
+  :global(body) {
+    margin: 0;
+    padding: 0;
+  }
+  .app-container {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
   }
 </style>
