@@ -1,12 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { socket } from '../socket';
+  import type { Token } from '../types';
 
   // App.svelteからルームIDを受け取る
   export let roomId: string;
+  export let initialTokens: Token[] = [];
 
   // このコンポーネントが管理するトークンのリスト
-  let tokens = [];
+  let tokens: Token[] = initialTokens;
+  $: tokens = initialTokens;
 
   onMount(() => {
     // サーバーから現在のトークンリストを受け取る

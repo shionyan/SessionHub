@@ -1,3 +1,8 @@
+<script lang="ts">
+  export let roomName: string;
+  export let roomId: string;
+</script>
+
 <div class="sidebar-container">
   <h2>操作パネル</h2>
   <div class="mode-selector">
@@ -9,6 +14,7 @@
 <style>
   .sidebar-container {
     width: 250px;
+    height: 100%;
     background-color: #f0f0f0;
     padding: 1rem;
     border-right: 1px solid #ccc;
