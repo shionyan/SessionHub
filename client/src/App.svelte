@@ -1,7 +1,7 @@
 <script lang="ts">
   import Sidebar from './lib/components/Sidebar.svelte';
   import Tabletop from './lib/components/Tabletop.svelte';
-  import Header from './lib/components/Header.svelte';
+  import Topbar from './lib/components/Topbar.svelte';
   import { onMount } from 'svelte';
   import { socket } from './lib/socket';
   import type { Token } from './lib/types';
@@ -32,11 +32,11 @@
 </script>
 
 <div class="app-container">
-  <div class="left-root">
-    <Header {roomName} {roomId}/>
+  <div class="main-content">
+    <Topbar {roomName} {roomId}/>
     <Tabletop {roomId} {initialTokens} />
   </div>
-  <div class="right-root">
+  <div class="sidebar-wrapper">
     <Sidebar {roomName} {roomId} />
   </div>
 </div>
@@ -53,11 +53,10 @@
     overflow: hidden;
     justify-content: space-between;
   }
-  .left-root {
+  .main-content {
+    flex-grow: 1;
     display: flex;
-  }
-  .right-root {
-    align-items: end;
-    justify-items: end;
+    flex-direction: column;
+    position: relative; /* Topbar の位置の基準点となります */
   }
 </style>
