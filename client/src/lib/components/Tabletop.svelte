@@ -2,7 +2,8 @@
   import { onMount, onDestroy  } from 'svelte';
   import { socket } from '../socket';
   import type { SceneObject } from '../types';
-  import Modal from './ObjectModal.svelte';
+  import RightClickModal from './RightClickModal.svelte';
+  import PanelSelectModal from './PanelSelectModal.svelte';
 
   // App.svelteからルームIDを受け取る
   export let roomId: string;
@@ -13,12 +14,13 @@
   let activeToken: SceneObject | null = null;
   let offsetX = 0;
   let offsetY = 0;
-  let menuVisible = false;
+  let clickCoords = { x: 0, y: 0 };
+
+  // モーダルの表示フラグ
+  let showRightClickModal = false;
   let menuX = 0;
   let menuY = 0;
-  let clickCoords = { x: 0, y: 0 };
-  let showAddPanelModal = false;
-
+  let showPanelSelectModal = false;
 
   let newObject = {
     src: '',
@@ -27,6 +29,7 @@
     z: 1
   };
 
+  // 
   function handleMouseDown(event: MouseEvent, token: SceneObject) {
     if (event.button !== 0) return;
     activeToken = token;
@@ -37,6 +40,7 @@
     window.addEventListener('mouseup', handleMouseUp);
   }
 
+  // オブジェクトをドラッグで移動させる
   function handleMouseMove(event: MouseEvent) {
     if (!activeToken) return;
 
@@ -58,6 +62,7 @@
     });
   }
 
+  // オブジェクトをドロップで位置確定
   function handleMouseUp() {
     activeToken = null;
     window.removeEventListener('mousemove', handleMouseMove);
@@ -124,78 +129,68 @@
     }
   }
 
-
+  // 右クリックメニュー
   function handleContextMenu(event: MouseEvent) {
-    event.preventDefault(); // ブラウザのデフォルト右クリックメニューを抑制
+    event.preventDefault(); // ブラウザのデフォルト右クリックメニューを禁止
 
     const rect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
     clickCoords = { x: event.clientX - rect.left, y: event.clientY - rect.top };
 
-    menuVisible = true;
+    showRightClickModal = true;
     menuX = event.clientX;
     menuY = event.clientY;
   }
 
   function closeMenu() {
-    menuVisible = false;
+    showRightClickModal = false;
   }
 
-
-  function openAddPanelModal() {
+  // パネルオブジェクト選択画面
+  function openPanelSelectModal() {
     closeMenu();
-    showAddPanelModal = true;
+    showPanelSelectModal  = true;
   }
 
-  function createPanelObject() {
-    if (!newObject.src) {
-      alert('画像URLを入力してください。');
-      return;
-    }
+  function handleCreateObject(event: CustomEvent<{ src: string; imageType: ImageType }>) {
+    const { src, imageType } = event.detail;
 
-    const newPanel: SceneObject = {
-      id: `obj-${Date.now()}-${Math.random()}`,
-      objectType: 'PANEL',
-      src: newObject.src,
-      x: clickCoords.x - newObject.width / 2, // クリック位置が中心になるように
-      y: clickCoords.y - newObject.height / 2,
-      width: newObject.width,
-      height: newObject.height,
-      z: newObject.z,
+    // 画像のサイズを取得して、適切なサイズで表示する（任意）
+    const img = new Image();
+    img.onload = () => {
+      const newPanel: SceneObject = {
+        id: `obj-${Date.now()}-${Math.random()}`,
+        objectType: 'PANEL',
+        imageType: imageType,
+        src: src,
+        x: clickCoords.x - img.width / 2,
+        y: clickCoords.y - img.height / 2,
+        width: img.width,
+        height: img.height,
+        z: 1,
+      };
+      socket.emit('addObject', { roomId, token: newPanel });
     };
-
-    // サーバーに通知
-    socket.emit('addObject', { roomId, token: newPanel });
-
-    // モーダルを閉じてフォームをリセット
-    showAddPanelModal = false;
-    newObject.src = '';
+    img.src = src;
   }
 </script>
 
-{#if menuVisible}
-  <div class="context-menu" style="top: {menuY}px; left: {menuX}px;">
+{#if showRightClickModal}
+  <RightClickModal {showRightClickModal} {menuX} {menuY} on:close={closeMenu}>
     <ul>
-      <li on:click={() => alert('フレームオブジェクトは未実装です')}>フレームオブジェクトを追加</li>
-      <li on:click={openAddPanelModal}>パネルオブジェクトを追加</li>
+      <li on:click={() => { alert('フレームオブジェクトは未実装です'); closeMenu(); }}>フレームオブジェクトを追加</li>
+      <li on:click={openPanelSelectModal}>パネルオブジェクトを追加</li>
     </ul>
-  </div>
+  </RightClickModal>
 {/if}
 
-<Modal showModal={showAddPanelModal} on:close={() => showAddPanelModal = false}>
-  <h2>パネルオブジェクトを追加</h2>
-  <div class="form-group">
-    <label for="src">画像URL</label>
-    <input type="text" id="src" bind:value={newObject.src} placeholder="https://example.com/image.png" />
-  </div>
-  <button on:click={createPanelObject}>作成</button>
-</Modal>
-
-<svelte:window on:click={closeMenu} />
+<PanelSelectModal
+  showModal={showPanelSelectModal}
+  on:close={() => showPanelSelectModal = false}
+  on:create={handleCreateObject}
+/>
 
 <div
   class="tabletop-area"
-  on:click={handleTabletopClick}
-  on:keydown={handleKeyDown}
   on:contextmenu={handleContextMenu}
   role="button"
   tabindex="0"
@@ -204,8 +199,8 @@
     <img
       class="token"
       src={token.src}
-      alt="キャラクターコマ"
-      style="left: {token.x}px; top: {token.y}px; width: {token.width}px;"
+      alt="token"
+      style="left: {token.x}px; top: {token.y}px; width: {token.width}px; height: {token.height}px; z-index: {token.z};"
       on:mousedown={(e) => handleMouseDown(e, token)}
     />
   {/each}
@@ -226,40 +221,5 @@
     position: absolute;
     cursor: grab;
     user-select: none;
-  }
-
-  .context-menu {
-    position: fixed;
-    background-color: rgba(31, 31, 31, 0.8);
-    box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
-    z-index: 1000;
-    min-width: 180px;
-    font-size: 0.875rem;
-    font-family: Roboto, Helvetica, Arial, sans-serif;
-  }
-  .context-menu ul {
-    list-style: none;
-    padding: 5px 0;
-    margin: 0;
-  }
-  .context-menu li {
-    padding: 8px 15px;
-    cursor: pointer;
-  }
-  .context-menu li:hover {
-    background-color: rgba(73, 73, 73, 0.8);
-  }
-
-
-  .form-group {
-    margin-bottom: 1rem; 
-  }
-  .form-group label { 
-    display: block;
-    margin-bottom: 0.25rem;
-  }
-  .form-group input { 
-    width: 300px; 
-    padding: 0.5rem; 
   }
 </style>
