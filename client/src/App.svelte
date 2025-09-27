@@ -4,7 +4,7 @@
   import Topbar from './lib/components/Topbar.svelte';
   import { onMount } from 'svelte';
   import { socket } from './lib/socket';
-  import type { Token } from './lib/types';
+  import type { SceneObject } from './lib/types';
 
   // URLからルームIDを取得する
   // もしIDがなければ、'default-room'に入る
@@ -14,7 +14,7 @@
     : 'default-room';
 
   let roomName = '部屋を読み込み中...';
-  let initialTokens: Token[] = [];
+  let initialTokens: SceneObject[] = [];
 
   onMount(() => {
     socket.on('connect', () => {

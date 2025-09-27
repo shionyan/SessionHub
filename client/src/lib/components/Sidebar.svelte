@@ -15,9 +15,9 @@
   .sidebar-container {
     width: 250px;
     height: 100%;
-    background-color: #f0f0f0;
+    background-color: #2c2c2c;
     padding: 1rem;
-    border-right: 1px solid #ccc;
+    border-left: 1px solid #505050;
     display: flex;
     flex-direction: column;
     gap: 1rem;
