@@ -6,7 +6,7 @@
   import PanelSelectModal from './PanelSelectModal.svelte';
 
   // App.svelteからルームIDを受け取る
-  let { roomId, initialTokens = [], isGridMode = false } = $props();
+  let { roomId, initialTokens = [] } = $props();
 
   // State
   let tokens = $state(initialTokens);
@@ -33,8 +33,13 @@
 
   // 座標をグリッドにスナップさせる関数
   function snapToGrid(value: number) {
-    if (!isGridMode) return value;
     return Math.round(value / GRID_SIZE) * GRID_SIZE;
+  }
+
+  // サイズをグリッド単位に丸める（最低1マス）
+  function snapSizeToGrid(value: number) {
+    const size = Math.round(value / GRID_SIZE) * GRID_SIZE;
+    return size < GRID_SIZE ? GRID_SIZE : size;
   }
 
   // #region --- マウス操作ハンドラ ---
@@ -73,28 +78,8 @@
       // ただし、スムーズな移動のためには内部座標は細かく持ち、表示または確定時にスナップが良い。
       // 今回は簡易的に、現在の位置に加算してからスナップ判定を行う。
       
-      let nextX = activeToken.x + deltaX;
-      let nextY = activeToken.y + deltaY;
-
-      // グリッドモードならスナップ（移動中はカクカクするが分かりやすい）
-      // ※より高度にするなら「ドラッグ中は自由、離すとスナップ」だが、要望の「配置ができるように」に従い常時スナップさせる
-      if (isGridMode) {
-        // 現在のマウス位置に対応するグリッド座標に吸着させるロジックに変更
-        // deltaを加算する方式だと誤差が積もるため、マウス座標から逆算するのが理想だが、
-        // 既存ロジックへの変更を最小限にするため、ここでは「移動量を加算した結果」をスナップする
-        // ただし、これだとドラッグしづらい（少し動かしても戻される）場合がある。
-        // なので、今回は「内部値は自由に更新、表示・送信時にスナップ」はせず、
-        // 単純に「グリッドモードONなら移動量に関わらず直近のグリッドに配置」は操作性が悪いので、
-        // ドラッグ終了時にスナップさせるか、あるいは「移動」ではなく「配置」と割り切るか。
-        // ここでは「内部座標は更新し、描画側でスナップ」はSvelteのリアクティブだと難しいので、
-        // そのまま座標を更新します（オートスナップはまだ実装しない、または将来の課題とする、という手もあるが、要望にあるので実装）
-        
-        // 修正: 常にスナップさせると動きにくいので、今回は「ドラッグ中は自由移動」とし、
-        // `handleMouseUp` (ドロップ時) にスナップさせる挙動にします。
-      }
-
-      activeToken.x = nextX;
-      activeToken.y = nextY;
+      activeToken.x += deltaX;
+      activeToken.y += deltaY;
 
       socket.emit('moveObject', { 
         roomId, 
@@ -115,7 +100,7 @@
   // 4. ドラッグ終了
   function handleMouseUp() {
     // グリッドモードならドロップ時にスナップして位置確定
-    if (activeToken && isDraggingToken && isGridMode) {
+    if (activeToken && isDraggingToken) {
       activeToken.x = snapToGrid(activeToken.x);
       activeToken.y = snapToGrid(activeToken.y);
       
@@ -168,13 +153,8 @@
     // グリッドモードならクリック位置もスナップさせる
     let wx = (clickX - view.x) / view.scale;
     let wy = (clickY - view.y) / view.scale;
-    
-    if (isGridMode) {
-        wx = snapToGrid(wx);
-        wy = snapToGrid(wy);
-    }
 
-    clickCoords = { x: wx, y: wy };
+    clickCoords = { x: snapToGrid(wx), y: snapToGrid(wy) };
 
     contextMenuType = type;
     if (type === 'token' && token) {
@@ -245,22 +225,34 @@
     showPanelSelectModal  = true;
   }
 
+  // アライメントを変更する関数（将来的にメニューから呼ぶ）
+  function updateAlignment(tokenId: string, alignment: TokenAlignment) {
+    const token = tokens.find(t => t.id === tokenId);
+    if (token) {
+        token.alignment = alignment;
+        // socket.emit('updateObject', ...) // 将来的に実装
+    }
+  }
+
   function handleCreateObject(event: CustomEvent<{ src: string; imageType: ImageType }>) {
     const { src, imageType } = event.detail;
 
     // 画像のサイズを取得して、適切なサイズで表示する（任意）
     const img = new Image();
     img.onload = () => {
+      const boxWidth = Math.ceil(img.width / GRID_SIZE) * GRID_SIZE;
+      const boxHeight = Math.ceil(img.height / GRID_SIZE) * GRID_SIZE;
       const newPanel: SceneObject = {
         id: `obj-${Date.now()}-${Math.random()}`,
         objectType: 'PANEL',
         imageType: imageType,
         src: src,
-        x: clickCoords.x - (isGridMode ? 0 : img.width / 2),
-        y: clickCoords.y - (isGridMode ? 0 : img.height / 2),
-        width: img.width,
-        height: img.height,
+        x: clickCoords.x,
+        y: clickCoords.y,
+        width: boxWidth || GRID_SIZE,
+        height: boxHeight || GRID_SIZE,
         z: 1,
+        alignment: 'center',
       };
       socket.emit('addObject', { roomId, token: newPanel });
     };
@@ -275,9 +267,10 @@
         <li onclick={() => { alert('フレームオブジェクトは未実装です'); closeMenu(); }}>フレームオブジェクトを追加</li>
         <li onclick={openPanelSelectModal}>パネルオブジェクトを追加</li>
       {:else}
-        <li onclick={() => { alert(`編集: ${targetTokenId}`); closeMenu(); }}>詳細編集（未実装）</li>
+        <li onclick={() => { if(targetTokenId) updateAlignment(targetTokenId, 'top-left'); closeMenu(); }}>↖ 左上に配置</li>
+        <li onclick={() => { if(targetTokenId) updateAlignment(targetTokenId, 'center'); closeMenu(); }}>・ 中央に配置</li>
+        <li onclick={() => { if(targetTokenId) updateAlignment(targetTokenId, 'bottom-right'); closeMenu(); }}>↘ 右下に配置</li>
         <li onclick={() => { alert(`削除: ${targetTokenId}`); closeMenu(); }}>削除（未実装）</li>
-        <li onclick={() => { alert(`前面へ: ${targetTokenId}`); closeMenu(); }}>最前面へ移動</li>
       {/if}
     </ul>
   </RightClickModal>
@@ -291,18 +284,18 @@
 
 <div
   class="tabletop-area"
-  bind:this={tabletopElement}
+  bind:this={tabletopElement} 
   onmousedown={handleBackgroundMouseDown}
   onwheel={handleWheel}
   oncontextmenu={(e) => handleContextMenu(e, 'background')}
   role="button"
   tabindex="0"
-  style:background-size="{isGridMode ? `${GRID_SIZE * view.scale}px ${GRID_SIZE * view.scale}px` : 'cover'}"
-  style:background-position="{isGridMode ? `${view.x}px ${view.y}px` : 'center'}"
-  style:background-image="{isGridMode ? `
+  style:background-size="{GRID_SIZE * view.scale}px {GRID_SIZE * view.scale}px"
+  style:background-position="{view.x}px {view.y}px"
+  style:background-image={`
     linear-gradient(to right, var(--c-grid-line) 1px, transparent 1px),
     linear-gradient(to bottom, var(--c-grid-line) 1px, transparent 1px)
-  ` : `url('/background.jpg')`}"
+  `}
   style:background-color="var(--c-bg-primary)"
 >
   
@@ -314,12 +307,9 @@
     <div class="axis y-axis"></div>
 
     {#each tokens as token (token.id)}
-      <img
-        class="token"
+      <div
+        class="token-box {token.alignment || 'center'}" 
         class:selected={selectedTokenId === token.id}
-        src={token.src}
-        alt="token"
-        draggable="false"
         style:left="{token.x}px"
         style:top="{token.y}px"
         style:width="{token.width}px"
@@ -327,7 +317,15 @@
         style:z-index={token.z}
         onmousedown={(e) => handleMouseDown(e, token)}
         oncontextmenu={(e) => handleContextMenu(e, 'token', token)}
-      />
+        role="button"
+        tabindex="0"
+      >
+        <img
+          src={token.src}
+          alt="token"
+          draggable="false"
+        />
+      </div>
     {/each}
   </div>
 </div>
@@ -372,19 +370,45 @@
     width: 2px;
   }
 
-  .token {
+  .token-box {
     position: absolute;
     cursor: grab;
     user-select: none;
     pointer-events: auto;
-    box-sizing: border-box; 
+    box-sizing: border-box;
+    /* 箱の領域を可視化したい場合はコメントアウトを外す */
+    /* border: 1px dashed rgba(255, 255, 255, 0.2); */
+    
+    /* Flexboxで中身の画像を配置 */
+    display: flex;
   }
-  .token.selected {
+  /* 選択時のボーダーは箱につく */
+  .token-box.selected {
     outline: 2px solid var(--c-accent);
-    z-index: 9999 !important; /* 選択中は手前に表示 */
+    background-color: rgba(0, 229, 255, 0.1); /* 選択範囲をわかりやすく */
+    z-index: 9999 !important;
   }
-  
-  .token:active {
+  .token-box:active {
     cursor: grabbing;
   }
+  /* 中身の画像 */
+  .token-box img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain; /* アスペクト比を維持して収める */
+    pointer-events: none; /* 画像自体のイベントは無視して箱で受ける */
+  }
+
+  /* 9方向配置のスタイル (Flexboxの組み合わせ) */
+  .token-box.top-left      { justify-content: flex-start; align-items: flex-start; }
+  .token-box.top-center    { justify-content: center;     align-items: flex-start; }
+  .token-box.top-right     { justify-content: flex-end;   align-items: flex-start; }
+  
+  .token-box.center-left   { justify-content: flex-start; align-items: center; }
+  .token-box.center        { justify-content: center;     align-items: center; } /* default */
+  .token-box.center-right  { justify-content: flex-end;   align-items: center; }
+  
+  .token-box.bottom-left   { justify-content: flex-start; align-items: flex-end; }
+  .token-box.bottom-center { justify-content: center;     align-items: flex-end; }
+  .token-box.bottom-right  { justify-content: flex-end;   align-items: flex-end; }
 </style>

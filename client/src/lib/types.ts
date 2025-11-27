@@ -3,6 +3,12 @@ export type ObjectType = 'PANEL' | 'FRAME';
 export type ImageType = 'RASTER' | 'VECTOR';
 export type AssetType = 'PANEL' | 'CHARACTER' | 'ICON';
 
+// 9方向の配置定義
+export type TokenAlignment = 
+  | 'top-left' | 'top-center' | 'top-right'
+  | 'center-left' | 'center' | 'center-right'
+  | 'bottom-left' | 'bottom-center' | 'bottom-right';
+
 export interface ImageAsset {
   id: string;
   src: string;
@@ -18,6 +24,7 @@ export type SceneObject = {
   isCommon?: boolean;
   isScript?: boolean;
   imageType?: ImageType;
+  alignment?: TokenAlignment;
 
   // プロパティ
   src: string;  // 画像URL
