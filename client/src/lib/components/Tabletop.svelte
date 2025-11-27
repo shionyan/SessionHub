@@ -6,41 +6,43 @@
   import PanelSelectModal from './PanelSelectModal.svelte';
 
   // App.svelteからルームIDを受け取る
-  export let roomId: string;
-  export let initialTokens: SceneObject[] = [];
+  let { roomId, initialTokens = [], isGridMode = false } = $props();
 
-  // このコンポーネントが管理するトークンのリスト
-  let tokens: SceneObject[] = initialTokens;
-  let activeToken: SceneObject | null = null;
-  let offsetX = 0;
-  let offsetY = 0;
+  // State
+  let tokens = $state(initialTokens);
+  let activeToken: SceneObject | null = $state(null);
+
+  // 視点操作用の状態変数
+  let view = $state({ x: 0, y: 0, scale: 1 });
+  let isPanning = false;
+  let isDraggingToken = false;
+
+  // モーダル関連
+  let showRightClickModal = $state(false);
+  let menuX = $state(0);
+  let menuY = $state(0);
+  let contextMenuType: 'background' | 'token' = $state('background'); // メニューの種類
+  let targetTokenId: string | null = null; // 右クリックされたトークンのID
+
+  let showPanelSelectModal = $state(false);
   let clickCoords = { x: 0, y: 0 };
 
-  // モーダルの表示フラグ
-  let showRightClickModal = false;
-  let menuX = 0;
-  let menuY = 0;
-  let showPanelSelectModal = false;
+  const GRID_SIZE = 50; // グリッドの単位
 
-  let newObject = {
-    src: '',
-    width: 100,
-    height: 100,
-    z: 1
-  };
+  // 座標をグリッドにスナップさせる関数
+  function snapToGrid(value: number) {
+    if (!isGridMode) return value;
+    return Math.round(value / GRID_SIZE) * GRID_SIZE;
+  }
 
-  // --- 視点操作用の状態変数 ---
-  let view = { x: 0, y: 0, scale: 1 };
-  let isPanning = false;
-  let isDraggingToken = false; // トークンドラッグ中かどうかのフラグ
-
-  // 
+  // #region --- マウス操作ハンドラ ---
+  // 1. トークンのドラッグ開始
   function handleMouseDown(event: MouseEvent, token: SceneObject) {
     if (event.button !== 0) return;
-    // イベントの伝播を止めて、背景のパン操作が始まらないようにする
     event.stopPropagation();
+    
     activeToken = token;
-    isDraggingToken = true; // ドラッグ開始フラグ
+    isDraggingToken = true;
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
@@ -48,7 +50,6 @@
 
   // 2. 背景のドラッグ開始（視点移動）
   function handleBackgroundMouseDown(event: MouseEvent) {
-    // 左クリック(0) または 中クリック(1) で移動
     if (event.button === 0 || event.button === 1) {
       isPanning = true;
       window.addEventListener('mousemove', handleMouseMove);
@@ -56,17 +57,40 @@
     }
   }
 
-  // オブジェクトをドラッグで移動させる
+  // 3. マウス移動
   function handleMouseMove(event: MouseEvent) {
-    // トークンの移動処理
+    // A. トークンの移動
     if (activeToken && isDraggingToken) {
-      // 拡大率を考慮して移動量を計算
       const deltaX = event.movementX / view.scale;
       const deltaY = event.movementY / view.scale;
 
-      activeToken.x += deltaX;
-      activeToken.y += deltaY;
-      tokens = tokens; // 再描画
+      // 自由移動中はそのまま加算し、ドロップ時や表示時にスナップを考慮する手もあるが、
+      // ここではドラッグ中もリアルタイムにスナップさせるなら以下のように計算を変える
+      // ただし、スムーズな移動のためには内部座標は細かく持ち、表示または確定時にスナップが良い。
+      // 今回は簡易的に、現在の位置に加算してからスナップ判定を行う。
+      
+      let nextX = activeToken.x + deltaX;
+      let nextY = activeToken.y + deltaY;
+
+      // グリッドモードならスナップ（移動中はカクカクするが分かりやすい）
+      // ※より高度にするなら「ドラッグ中は自由、離すとスナップ」だが、要望の「配置ができるように」に従い常時スナップさせる
+      if (isGridMode) {
+        // 現在のマウス位置に対応するグリッド座標に吸着させるロジックに変更
+        // deltaを加算する方式だと誤差が積もるため、マウス座標から逆算するのが理想だが、
+        // 既存ロジックへの変更を最小限にするため、ここでは「移動量を加算した結果」をスナップする
+        // ただし、これだとドラッグしづらい（少し動かしても戻される）場合がある。
+        // なので、今回は「内部値は自由に更新、表示・送信時にスナップ」はせず、
+        // 単純に「グリッドモードONなら移動量に関わらず直近のグリッドに配置」は操作性が悪いので、
+        // ドラッグ終了時にスナップさせるか、あるいは「移動」ではなく「配置」と割り切るか。
+        // ここでは「内部座標は更新し、描画側でスナップ」はSvelteのリアクティブだと難しいので、
+        // そのまま座標を更新します（オートスナップはまだ実装しない、または将来の課題とする、という手もあるが、要望にあるので実装）
+        
+        // 修正: 常にスナップさせると動きにくいので、今回は「ドラッグ中は自由移動」とし、
+        // `handleMouseUp` (ドロップ時) にスナップさせる挙動にします。
+      }
+
+      activeToken.x = nextX;
+      activeToken.y = nextY;
 
       socket.emit('moveObject', { 
         roomId, 
@@ -77,16 +101,29 @@
       return;
     }
 
-    // 背景のパン（移動）処理
+    // B. 背景の移動（パン）
     if (isPanning) {
       view.x += event.movementX;
       view.y += event.movementY;
-      view = view; // 再描画
     }
   }
 
-  // オブジェクトをドロップで位置確定
+  // 4. ドラッグ終了
   function handleMouseUp() {
+    // グリッドモードならドロップ時にスナップして位置確定
+    if (activeToken && isDraggingToken && isGridMode) {
+      activeToken.x = snapToGrid(activeToken.x);
+      activeToken.y = snapToGrid(activeToken.y);
+      
+      // スナップ後の位置を送信
+      socket.emit('moveObject', { 
+        roomId, 
+        tokenId: activeToken.id, 
+        x: activeToken.x, 
+        y: activeToken.y 
+      });
+    }
+
     activeToken = null;
     isDraggingToken = false;
     isPanning = false;
@@ -94,63 +131,70 @@
     window.removeEventListener('mouseup', handleMouseUp);
   }
 
-  // 5. 拡大縮小（ズーム）
+  // 5. 拡大縮小
   function handleWheel(event: WheelEvent) {
-    if (!showPanelSelectModal || !showRightClickModal) return; // メニュー表示中は無効
+    if (showRightClickModal) return;
     event.preventDefault();
 
     const scaleAmount = -event.deltaY * 0.001;
-    const newScale = Math.min(Math.max(0.1, view.scale + scaleAmount), 5); // 0.1倍〜5倍
+    const newScale = Math.min(Math.max(0.1, view.scale + scaleAmount), 5);
 
-    // マウス位置を中心にズームする計算
     const rect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
 
-    // ズーム前のワールド座標
     const worldMouseX = (mouseX - view.x) / view.scale;
     const worldMouseY = (mouseY - view.y) / view.scale;
 
-    // スケール更新
     view.scale = newScale;
-
-    // ズーム後の位置補正
     view.x = mouseX - worldMouseX * view.scale;
     view.y = mouseY - worldMouseY * view.scale;
   }
 
-  // 6. 右クリックメニュー（座標変換を追加）
-  function handleContextMenu(event: MouseEvent) {
+  // 6. 右クリックメニュー
+  function handleContextMenu(event: MouseEvent, type: 'background' | 'token' = 'background', token?: SceneObject) {
     event.preventDefault();
+    event.stopPropagation(); // 背景とトークンのイベント重複を防ぐ
     
-    const rect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const rect = (event.currentTarget as HTMLElement).closest('.tabletop-area')!.getBoundingClientRect();
     const clickX = event.clientX - rect.left;
     const clickY = event.clientY - rect.top;
 
-    // スクリーン座標からワールド座標（拡大縮小・移動を考慮した座標）に変換して保存
-    clickCoords = { 
-      x: (clickX - view.x) / view.scale, 
-      y: (clickY - view.y) / view.scale 
-    };
+    // ワールド座標を計算して保存（新規作成用）
+    // グリッドモードならクリック位置もスナップさせる
+    let wx = (clickX - view.x) / view.scale;
+    let wy = (clickY - view.y) / view.scale;
+    
+    if (isGridMode) {
+        wx = snapToGrid(wx);
+        wy = snapToGrid(wy);
+    }
+
+    clickCoords = { x: wx, y: wy };
+
+    contextMenuType = type;
+    if (type === 'token' && token) {
+      targetTokenId = token.id;
+    } else {
+      targetTokenId = null;
+    }
 
     showRightClickModal = true;
     menuX = event.clientX;
     menuY = event.clientY;
   }
+  // #endregion --- マウス操作ハンドラ ---
 
+  // #region --- ソケットリスナー ---
   onMount(() => {
-    // オブジェクト追加を受け取る
     socket.on('objectAdded', (newToken: SceneObject) => {
       tokens = [...tokens, newToken];
     });
-
-    // オブジェクト移動を受け取る
     socket.on('objectMoved', ({ tokenId, x, y }) => {
-      const tokenToMove = tokens.find(t => t.id === tokenId);
-      if (tokenToMove) {
-        tokenToMove.x = x;
-        tokenToMove.y = y;
-        tokens = tokens; // 再描画を促す
+      const token = tokens.find(t => t.id === tokenId);
+      if (token) {
+        token.x = x;
+        token.y = y;
       }
     });
   });
@@ -159,6 +203,8 @@
     window.removeEventListener('mousemove', handleMouseMove);
     window.removeEventListener('mouseup', handleMouseUp);
   });
+
+  // #endregion --- ソケットリスナー ---
 
   function handleKeyDown(event: KeyboardEvent) {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -200,8 +246,8 @@
         objectType: 'PANEL',
         imageType: imageType,
         src: src,
-        x: clickCoords.x - img.width / 2,
-        y: clickCoords.y - img.height / 2,
+        x: clickCoords.x - (isGridMode ? 0 : img.width / 2),
+        y: clickCoords.y - (isGridMode ? 0 : img.height / 2),
         width: img.width,
         height: img.height,
         z: 1,
@@ -213,10 +259,16 @@
 </script>
 
 {#if showRightClickModal}
-  <RightClickModal {showRightClickModal} {menuX} {menuY} on:close={closeMenu}>
+  <RightClickModal showRightClickModal={showRightClickModal} {menuX} {menuY} on:close={closeMenu}>
     <ul>
-      <li on:click={() => { alert('フレームオブジェクトは未実装です'); closeMenu(); }}>フレームオブジェクトを追加</li>
-      <li on:click={openPanelSelectModal}>パネルオブジェクトを追加</li>
+      {#if contextMenuType === 'background'}
+        <li onclick={() => { alert('フレームオブジェクトは未実装です'); closeMenu(); }}>フレームオブジェクトを追加</li>
+        <li onclick={openPanelSelectModal}>パネルオブジェクトを追加</li>
+      {:else}
+        <li onclick={() => { alert(`編集: ${targetTokenId}`); closeMenu(); }}>詳細編集（未実装）</li>
+        <li onclick={() => { alert(`削除: ${targetTokenId}`); closeMenu(); }}>削除（未実装）</li>
+        <li onclick={() => { alert(`前面へ: ${targetTokenId}`); closeMenu(); }}>最前面へ移動</li>
+      {/if}
     </ul>
   </RightClickModal>
 {/if}
@@ -229,24 +281,39 @@
 
 <div
   class="tabletop-area"
-  on:mousedown={handleBackgroundMouseDown}
-  on:wheel={handleWheel}
-  on:contextmenu={handleContextMenu}
+  onmousedown={handleBackgroundMouseDown}
+  onwheel={handleWheel}
+  oncontextmenu={(e) => handleContextMenu(e, 'background')}
   role="button"
   tabindex="0"
+  style:background-size="{isGridMode ? `${GRID_SIZE * view.scale}px ${GRID_SIZE * view.scale}px` : 'cover'}"
+  style:background-position="{isGridMode ? `${view.x}px ${view.y}px` : 'center'}"
+  style:background-image="{isGridMode ? `
+    linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)
+  ` : `url('/background.jpg')`}"
 >
-<div 
+  
+  <div 
     class="world-layer" 
-    style="transform: translate({view.x}px, {view.y}px) scale({view.scale});"
+    style:transform={`translate(${view.x}px, ${view.y}px) scale(${view.scale})`}
   >
+    <div class="axis x-axis"></div>
+    <div class="axis y-axis"></div>
+
     {#each tokens as token (token.id)}
       <img
         class="token"
         src={token.src}
         alt="token"
-        draggable="false" 
-        style="left: {token.x}px; top: {token.y}px; width: {token.width}px; height: {token.height}px; z-index: {token.z};"
-        on:mousedown={(e) => handleMouseDown(e, token)}
+        draggable="false"
+        style:left="{token.x}px"
+        style:top="{token.y}px"
+        style:width="{token.width}px"
+        style:height="{token.height}px"
+        style:z-index={token.z}
+        onmousedown={(e) => handleMouseDown(e, token)}
+        oncontextmenu={(e) => handleContextMenu(e, 'token', token)}
       />
     {/each}
   </div>
@@ -255,31 +322,48 @@
 <style>
   .tabletop-area {
     flex-grow: 1;
-    background-image: url('/background.jpg');
-    background-size: cover;
-    background-position: center;
+    background-color: #242424; /* グリッド時の背景色 */
     position: relative;
     cursor: default;
     outline: none;
-    overflow: hidden; /* 追加: 領域外を描画しない */
+    overflow: hidden;
   }
 
-  /* 追加: ワールド座標系を管理するレイヤー */
   .world-layer {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    transform-origin: 0 0; /* 左上原点で変形 */
-    pointer-events: none; /* コンテナ自体はクリックを透過させる */
+    transform-origin: 0 0;
+    pointer-events: none;
+  }
+
+  /* 軸のスタイル */
+  .axis {
+    position: absolute;
+    background-color: cyan; /* 軸の色 */
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .x-axis {
+    top: 0;
+    left: -100000px; /* 十分長く */
+    width: 200000px;
+    height: 2px;
+  }
+  .y-axis {
+    left: 0;
+    top: -100000px;
+    height: 200000px;
+    width: 2px;
   }
 
   .token {
     position: absolute;
     cursor: grab;
     user-select: none;
-    pointer-events: auto; /* トークンはマウスイベントを受け取る */
+    pointer-events: auto;
   }
   
   .token:active {

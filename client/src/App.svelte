@@ -13,8 +13,9 @@
     ? pathSegments[1]
     : 'default-room';
 
-  let roomName = '部屋を読み込み中...';
-  let initialTokens: SceneObject[] = [];
+  let roomName = $state('部屋を読み込み中...');
+  let initialTokens: SceneObject[] = $state([]);
+  let isGridMode = $state(false); // グリッドモードの状態を追加
 
   onMount(() => {
     socket.on('connect', () => {
@@ -34,10 +35,10 @@
 <div class="app-container">
   <div class="main-content">
     <Topbar {roomName} {roomId}/>
-    <Tabletop {roomId} {initialTokens} />
+    <Tabletop {roomId} {initialTokens} {isGridMode} />
   </div>
   <div class="sidebar-wrapper">
-    <Sidebar {roomName} {roomId} />
+    <Sidebar {roomName} {roomId} bind:isGridMode={isGridMode} />
   </div>
 </div>
 
