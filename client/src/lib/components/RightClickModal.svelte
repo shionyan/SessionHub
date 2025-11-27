@@ -28,7 +28,13 @@
 </script>
 
 {#if showRightClickModal}
-  <div class="backdrop" on:click|self={closeModal} on:contextmenu|preventDefault|stopPropagation>
+  <div 
+    class="backdrop" 
+    onclick={closeModal} 
+    role="button"
+    tabindex="0"
+    onkeydown={(e) => e.key === 'Escape' && closeModal()}
+  >
     <div class="context-menu" style="top: {menuY}px; left: {menuX}px;">
       <slot></slot>
     </div>
@@ -57,18 +63,30 @@
     overflow: hidden; /* 角を丸めるため */
   }
 
-  /* スロット経由で挿入されるul, liのスタイルをここで定義 */
-  :global(.context-menu ul) {
-    list-style: none;
-    padding: 5px 0;
-    margin: 0;
+  :global(.menu-list) {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0;
   }
-  :global(.context-menu li) {
-    padding: 8px 15px;
+  
+  :global(.menu-item) {
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 8px 16px;
     cursor: pointer;
     color: white;
+    font-size: 0.9rem;
+    width: 100%;
+    border-radius: 0;
   }
-  :global(.context-menu li:hover) {
-    background-color: rgba(73, 73, 73, 0.8);
+  
+  :global(.menu-item:hover) {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white; /* ボタン文字色強制 */
+  }
+
+  :global(.menu-item.warning:hover) {
+    background-color: rgba(255, 50, 50, 0.3);
   }
 </style>

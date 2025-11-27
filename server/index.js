@@ -141,6 +141,19 @@ io.on('connection', (socket) => {
     }
   });
 
+  // オブジェクトのプロパティ更新 (リサイズ、アライメント変更など)
+  socket.on('updateObject', ({ roomId, token }) => {
+    if (rooms[roomId]) {
+      const index = rooms[roomId].tokens.findIndex(t => t.id === token.id);
+      if (index !== -1) {
+        // サーバー側のデータを更新
+        rooms[roomId].tokens[index] = token;
+        // 部屋の全員に更新を通知
+        io.to(roomId).emit('objectUpdated', token);
+      }
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('ユーザーが切断しました。 ID:', socket.id);
   });

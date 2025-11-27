@@ -1,17 +1,16 @@
 <script lang="ts">
   import { onMount, onDestroy  } from 'svelte';
   import { socket } from '../socket';
-  import type { SceneObject, ImageType } from '../types';
+  import type { SceneObject, ImageType, TokenAlignment } from '../types';
   import RightClickModal from './RightClickModal.svelte';
   import PanelSelectModal from './PanelSelectModal.svelte';
 
   // App.svelteからルームIDを受け取る
-  let { roomId, initialTokens = [] } = $props();
+  let { roomId, initialTokens = [], selectedToken = $bindable(null) } = $props();
 
   // State
   let tokens = $state(initialTokens);
   let activeToken: SceneObject | null = $state(null);
-  let selectedTokenId: string | null = $state(null);
 
   // 視点操作用の状態変数
   let view = $state({ x: 0, y: 0, scale: 1 });
@@ -49,7 +48,7 @@
     event.stopPropagation();
     
     activeToken = token;
-    selectedTokenId = token.id;
+    selectedToken = token;
     isDraggingToken = true;
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -59,7 +58,7 @@
   // 2. 背景のドラッグ開始（視点移動）
   function handleBackgroundMouseDown(event: MouseEvent) {
     if (event.button === 0 || event.button === 1) {
-      selectedTokenId = null;
+      selectedToken = null;
       isPanning = true;
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
@@ -181,6 +180,17 @@
         token.y = y;
       }
     });
+    socket.on('objectUpdated', (updatedToken: SceneObject) => {
+      const index = tokens.findIndex(t => t.id === updatedToken.id);
+      if (index !== -1) {
+        tokens[index] = updatedToken;
+        // もし自分が選択しているトークンが更新されたら、選択状態も更新
+        if (selectedToken && selectedToken.id === updatedToken.id) {
+          selectedToken = updatedToken;
+        }
+      }
+    });
+
     // 画面サイズに合わせて初期位置を調整（中央表示）
     if (tabletopElement) {
       const rect = tabletopElement.getBoundingClientRect();
@@ -262,17 +272,17 @@
 
 {#if showRightClickModal}
   <RightClickModal showRightClickModal={showRightClickModal} {menuX} {menuY} on:close={closeMenu}>
-    <ul>
+    <div class="menu-list">
       {#if contextMenuType === 'background'}
-        <li onclick={() => { alert('フレームオブジェクトは未実装です'); closeMenu(); }}>フレームオブジェクトを追加</li>
-        <li onclick={openPanelSelectModal}>パネルオブジェクトを追加</li>
+        <button class="menu-item" onclick={() => { alert('フレームオブジェクトは未実装です'); closeMenu(); }}>フレームオブジェクトを追加</button>
+        <button class="menu-item" onclick={openPanelSelectModal}>パネルオブジェクトを追加</button>
       {:else}
-        <li onclick={() => { if(targetTokenId) updateAlignment(targetTokenId, 'top-left'); closeMenu(); }}>↖ 左上に配置</li>
-        <li onclick={() => { if(targetTokenId) updateAlignment(targetTokenId, 'center'); closeMenu(); }}>・ 中央に配置</li>
-        <li onclick={() => { if(targetTokenId) updateAlignment(targetTokenId, 'bottom-right'); closeMenu(); }}>↘ 右下に配置</li>
-        <li onclick={() => { alert(`削除: ${targetTokenId}`); closeMenu(); }}>削除（未実装）</li>
+        <button class="menu-item" onclick={() => { if(targetTokenId) updateAlignment(targetTokenId, 'top-left'); closeMenu(); }}>↖ 左上に配置</button>
+        <button class="menu-item" onclick={() => { if(targetTokenId) updateAlignment(targetTokenId, 'center'); closeMenu(); }}>・ 中央に配置</button>
+        <button class="menu-item" onclick={() => { if(targetTokenId) updateAlignment(targetTokenId, 'bottom-right'); closeMenu(); }}>↘ 右下に配置</button>
+        <button class="menu-item warning" onclick={() => { alert(`削除: ${targetTokenId}`); closeMenu(); }}>削除（未実装）</button>
       {/if}
-    </ul>
+    </div>
   </RightClickModal>
 {/if}
 
@@ -309,7 +319,7 @@
     {#each tokens as token (token.id)}
       <div
         class="token-box {token.alignment || 'center'}" 
-        class:selected={selectedTokenId === token.id}
+        class:selected={selectedToken?.id === token.id}
         style:left="{token.x}px"
         style:top="{token.y}px"
         style:width="{token.width}px"

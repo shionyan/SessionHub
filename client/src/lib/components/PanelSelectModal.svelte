@@ -20,8 +20,22 @@
   let isLoading = false;
 
   function closeModal() {
-    if (isLoading) return;
     dispatch('close');
+  }
+
+  function handleDragOver(e: DragEvent) {
+    e.preventDefault();
+    isDragging = true;
+  }
+  function handleDragLeave() {
+    isDragging = false;
+  }
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    isDragging = false;
+    if (e.dataTransfer?.files) {
+      console.log('Drop:', e.dataTransfer.files);
+    }
   }
 
   // ファイルが選択される
@@ -33,37 +47,37 @@
     const formData = new FormData();
     formData.append('image', file);
 
-try {
-        // サーバーへのアップロード処理
-        const response = await fetch('http://localhost:3000/upload', {
-            method: 'POST',
-            body: formData,
-        });
+    try {
+      // サーバーへのアップロード処理
+      const response = await fetch('http://localhost:3000/upload', {
+        method: 'POST',
+        body: formData,
+      });
 
-        const result = await response.json();
+      const result = await response.json();
 
-        if (!response.ok) {
-            throw new Error(result.message || 'アップロードに失敗しました。');
-        }
+      if (!response.ok) {
+        throw new Error(result.message || 'アップロードに失敗しました。');
+      }
 
-        console.log('アップロード成功:', result);
+      console.log('アップロード成功:', result);
 
-        // アップロード成功後、サムネイルを生成してリストに追加
-        const newAsset: ImageAsset = {
-            id: `new-${Date.now()}`,
-            src: `http://localhost:3000${result.filePath}`, // サーバーから返されたパス
-            thumbnail: URL.createObjectURL(file), // サムネイルはブラウザで一時的に生成
-            type: 'PANEL', // TODO: タイプを選択できるようにする
-            tags: [],
-        };
-        libraryImages = [newAsset, ...libraryImages];
-        selectedImage = newAsset; // アップロードしたものを選択状態にする
+      // アップロード成功後、サムネイルを生成してリストに追加
+      const newAsset: ImageAsset = {
+        id: `new-${Date.now()}`,
+        src: `http://localhost:3000${result.filePath}`, // サーバーから返されたパス
+        thumbnail: URL.createObjectURL(file), // サムネイルはブラウザで一時的に生成
+        type: 'PANEL', // TODO: タイプを選択できるようにする
+        tags: [],
+      };
+      libraryImages = [newAsset, ...libraryImages];
+      selectedImage = newAsset; // アップロードしたものを選択状態にする
 
     } catch (error) {
-        console.error(error);
-        alert((error as Error).message);
+      console.error(error);
+      alert((error as Error).message);
     } finally {
-        isLoading = false;
+      isLoading = false;
     }
   }
 
@@ -89,21 +103,32 @@ try {
 </script>
 
 {#if showModal}
-  <div class="backdrop" on:click|self={closeModal}>
-    <div class="modal-content">
+  <div 
+    class="backdrop" 
+    onclick={closeModal}
+    role="button"
+    tabindex="0"
+    onkeydown={(e) => e.key === 'Escape' && closeModal()}
+  >
+    <div class="modal-content"
+      role="presentation"
+      onclick={(e) => e.stopPropagation()}
+      ondragover={handleDragOver}
+      ondragleave={handleDragLeave}
+      ondrop={handleDrop}>
       <div class="tabs">
-        <button class:active={imageType === 'RASTER'} on:click={() => imageType = 'RASTER'}>
+        <button class:active={imageType === 'RASTER'} onclick={() => imageType = 'RASTER'}>
           ラスター画像
         </button>
-        <button class:active={imageType === 'VECTOR'} on:click={() => imageType = 'VECTOR'} disabled>
+        <button class:active={imageType === 'VECTOR'} onclick={() => imageType = 'VECTOR'} disabled>
           ベクター (未実装)
         </button>
       </div>
 
       {#if imageType === 'RASTER'}
         <div class="tab-content">
-          <input type="file" accept="image/*" on:change={handleImageUpload} bind:this={fileInput} style="display: none;" />
-          <button on:click={() => fileInput.click()}>画像を選択</button>
+          <input type="file" accept="image/*" onchange={handleImageUpload} bind:this={fileInput} style="display: none;" />
+          <button onclick={() => fileInput.click()}>画像を選択</button>
           {#if uploadedImageSrc}
             <div class="image-preview">
               <img src={uploadedImageSrc} alt="Preview" />
@@ -113,8 +138,8 @@ try {
       {/if}
 
       <div class="actions">
-        <button on:click={handleCreate} disabled={!uploadedImageSrc}>作成</button>
-        <button on:click={closeModal} class="cancel">キャンセル</button>
+        <button onclick={handleCreate} disabled={!uploadedImageSrc}>作成</button>
+        <button onclick={closeModal} class="cancel">キャンセル</button>
       </div>
     </div>
   </div>
