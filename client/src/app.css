@@ -1,11 +1,42 @@
 :root {
+  /* プロジェクト全体のテーマカラー設定 */
+  /* メインカラー: アプリのブランドカラー（青紫系） */
+  --c-main: #646cff;
+  --c-main-hover: #747bff;
+  
+  /* サブカラー: 補助的な色（少し落ち着いた青） */
+  --c-sub: #535bf2;
+  
+  /* アクセントカラー: 強調、選択、注目させたい箇所（シアン） */
+  --c-accent: #00e5ff;
+
+  /* --- ダークテーマ (デフォルト) --- */
+  --c-bg-primary: #242424;   /* 背景色1 */
+  --c-bg-secondary: #2c2c2c; /* 背景色2（サイドバー、モーダルなど） */
+  --c-border: #505050;       /* 境界線 */
+  --c-text-primary: rgba(255, 255, 255, 0.87);
+  --c-text-secondary: rgba(255, 255, 255, 0.6);
+  --c-grid-line: rgba(255, 255, 255, 0.1);
+}
+
+/* --- ライトテーマ (将来的な切り替え用) --- */
+:root[data-theme="light"] {
+  --c-bg-primary: #f0f0f0;
+  --c-bg-secondary: #ffffff;
+  --c-border: #cccccc;
+  --c-text-primary: #213547;
+  --c-text-secondary: #666666;
+  --c-grid-line: rgba(0, 0, 0, 0.1);
+}
+
+:root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: var(--c-text-primary);
+  background-color: var(--c-bg-primary);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -19,11 +50,11 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--c-main);
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
+  color: var(--c-sub);
 }
 
 body {
@@ -56,10 +87,13 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: var(--c-bg-secondary);
+  border: 1px solid var(--c-border);
+  color: var(--c-text-primary);
   cursor: pointer;
   transition: border-color 0.25s;
 }
 button:hover {
-  background-color: #242424;
+  border-color: var(--c-main);
+  background-color: var(--c-bg-secondary);
 }

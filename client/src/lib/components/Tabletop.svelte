@@ -11,11 +11,13 @@
   // State
   let tokens = $state(initialTokens);
   let activeToken: SceneObject | null = $state(null);
+  let selectedTokenId: string | null = $state(null);
 
   // 視点操作用の状態変数
   let view = $state({ x: 0, y: 0, scale: 1 });
   let isPanning = false;
   let isDraggingToken = false;
+  let tabletopElement: HTMLDivElement;
 
   // モーダル関連
   let showRightClickModal = $state(false);
@@ -42,6 +44,7 @@
     event.stopPropagation();
     
     activeToken = token;
+    selectedTokenId = token.id;
     isDraggingToken = true;
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -51,6 +54,7 @@
   // 2. 背景のドラッグ開始（視点移動）
   function handleBackgroundMouseDown(event: MouseEvent) {
     if (event.button === 0 || event.button === 1) {
+      selectedTokenId = null;
       isPanning = true;
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
@@ -197,6 +201,12 @@
         token.y = y;
       }
     });
+    // 画面サイズに合わせて初期位置を調整（中央表示）
+    if (tabletopElement) {
+      const rect = tabletopElement.getBoundingClientRect();
+      view.x = rect.width / 2;
+      view.y = rect.height / 2;
+    }
   });
 
   onDestroy(() => {
@@ -281,6 +291,7 @@
 
 <div
   class="tabletop-area"
+  bind:this={tabletopElement}
   onmousedown={handleBackgroundMouseDown}
   onwheel={handleWheel}
   oncontextmenu={(e) => handleContextMenu(e, 'background')}
@@ -289,9 +300,10 @@
   style:background-size="{isGridMode ? `${GRID_SIZE * view.scale}px ${GRID_SIZE * view.scale}px` : 'cover'}"
   style:background-position="{isGridMode ? `${view.x}px ${view.y}px` : 'center'}"
   style:background-image="{isGridMode ? `
-    linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)
+    linear-gradient(to right, var(--c-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--c-grid-line) 1px, transparent 1px)
   ` : `url('/background.jpg')`}"
+  style:background-color="var(--c-bg-primary)"
 >
   
   <div 
@@ -304,6 +316,7 @@
     {#each tokens as token (token.id)}
       <img
         class="token"
+        class:selected={selectedTokenId === token.id}
         src={token.src}
         alt="token"
         draggable="false"
@@ -322,7 +335,7 @@
 <style>
   .tabletop-area {
     flex-grow: 1;
-    background-color: #242424; /* グリッド時の背景色 */
+    background-color: var(--c-bg-primary);
     position: relative;
     cursor: default;
     outline: none;
@@ -342,7 +355,7 @@
   /* 軸のスタイル */
   .axis {
     position: absolute;
-    background-color: cyan; /* 軸の色 */
+    background-color: var(--c-accent); /* 軸の色 */
     opacity: 0.5;
     pointer-events: none;
   }
@@ -364,6 +377,11 @@
     cursor: grab;
     user-select: none;
     pointer-events: auto;
+    box-sizing: border-box; 
+  }
+  .token.selected {
+    outline: 2px solid var(--c-accent);
+    z-index: 9999 !important; /* 選択中は手前に表示 */
   }
   
   .token:active {

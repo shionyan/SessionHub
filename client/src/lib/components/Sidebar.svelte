@@ -19,32 +19,34 @@
 </div>
 
 <style>
-  /* スタイル調整 */
   .sidebar-container {
     width: 250px;
     height: 100%;
-    background-color: #2c2c2c;
+    background-color: var(--c-bg-secondary);
     padding: 1rem;
-    border-left: 1px solid #505050;
+    border-left: 1px solid var(--c-border);
     display: flex;
     flex-direction: column;
     gap: 1rem;
   }
+
   .mode-selector {
     display: grid;
     grid-template-columns: 1fr;
     gap: 0.5rem;
   }
+
   button {
     padding: 0.5rem;
-    border: 1px solid #555;
-    background-color: #333;
-    color: #fff;
+    border: 1px solid var(--c-border);
+    background-color: var(--c-bg-primary);
+    color: var(--c-text-primary);
     cursor: pointer;
   }
   button.active {
-    background-color: #646cff;
-    border-color: #646cff;
+    background-color: var(--c-main);
+    border-color: var(--c-main);
+    color: #fff; /* アクティブ時は白文字固定で見やすく */
     font-weight: bold;
   }
 </style>
