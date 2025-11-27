@@ -33,17 +33,37 @@
     const formData = new FormData();
     formData.append('image', file);
 
-    try {
-      const response = await fetch('http://localhost:3000/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const result = await response.json();
+try {
+        // サーバーへのアップロード処理
+        const response = await fetch('http://localhost:3000/upload', {
+            method: 'POST',
+            body: formData,
+        });
 
-      if (!response.ok) {
-        throw new Error(result.message || 'ファイルのアップロードに失敗しました。');
-      }
-      console.log('サーバに')
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || 'アップロードに失敗しました。');
+        }
+
+        console.log('アップロード成功:', result);
+
+        // アップロード成功後、サムネイルを生成してリストに追加
+        const newAsset: ImageAsset = {
+            id: `new-${Date.now()}`,
+            src: `http://localhost:3000${result.filePath}`, // サーバーから返されたパス
+            thumbnail: URL.createObjectURL(file), // サムネイルはブラウザで一時的に生成
+            type: 'PANEL', // TODO: タイプを選択できるようにする
+            tags: [],
+        };
+        libraryImages = [newAsset, ...libraryImages];
+        selectedImage = newAsset; // アップロードしたものを選択状態にする
+
+    } catch (error) {
+        console.error(error);
+        alert((error as Error).message);
+    } finally {
+        isLoading = false;
     }
   }
 
