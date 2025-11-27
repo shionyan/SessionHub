@@ -1,6 +1,15 @@
 // オブジェクトの種別を定義
 export type ObjectType = 'PANEL' | 'FRAME';
 export type ImageType = 'RASTER' | 'VECTOR';
+export type AssetType = 'PANEL' | 'CHARACTER' | 'ICON';
+
+export interface ImageAsset {
+  id: string;
+  src: string;
+  thumbnail: string;
+  type: AssetType;
+  tags: string[];
+}
 
 export type SceneObject = {
   id: string;

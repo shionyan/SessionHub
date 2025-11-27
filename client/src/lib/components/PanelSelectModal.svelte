@@ -1,17 +1,50 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { ImageType } from '../types';
+  import type { ImageAsset, ImageType } from '../types';
 
   export let showModal: boolean;
 
   const dispatch = createEventDispatcher();
 
+  // ---- 状態変数 ----
   let imageType: ImageType = 'RASTER';
+  let isDragging = false;
+
   let uploadedImageSrc: string | null = null;
   let fileInput: HTMLInputElement;
 
+  // 表示用の画像リスト（TODO: 将来的にAPIから取得）
+  let roomImages: ImageAsset[] = []; 
+  let libraryImages: ImageAsset[] = [];
+  let selectedImage: ImageAsset | null = null;
+  let isLoading = false;
+
   function closeModal() {
+    if (isLoading) return;
     dispatch('close');
+  }
+
+  // ファイルが選択される
+  async function handleFileSelect(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    
+    isLoading = true;
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const response = await fetch('http://localhost:3000/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'ファイルのアップロードに失敗しました。');
+      }
+      console.log('サーバに')
+    }
   }
 
   function handleImageUpload(event: Event) {
