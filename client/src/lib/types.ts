@@ -21,10 +21,13 @@ export type SceneObject = {
   id: string;
   objectType: ObjectType; // PANEL か FRAME か
 
-  isCommon?: boolean;
-  isScript?: boolean;
-  imageType?: ImageType;
-  alignment?: TokenAlignment;
+  isCommon?: boolean;           // commonかどうか
+  isScript?: boolean;           // scriptがあるかどうか
+  imageType?: ImageType;        // Raster or Vector
+  alignment?: TokenAlignment;   // アラインメント
+  rotation?: number;            // 度数法 (deg)
+  locked?: boolean;             // 位置・サイズ変更のロック
+  visible?: boolean;            // 非表示 (falseの場合、PLには見えない想定)
 
   // プロパティ
   src: string;  // 画像URL

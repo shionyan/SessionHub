@@ -46,6 +46,13 @@
   function handleMouseDown(event: MouseEvent, token: SceneObject) {
     if (event.button !== 0) return;
     event.stopPropagation();
+
+    // ロックされていたらドラッグ操作を開始しない
+    if (token.locked) {
+        // 選択状態の切り替えだけ行う
+        selectedToken = token;
+        return; 
+    }
     
     activeToken = token;
     selectedToken = token;
@@ -190,6 +197,12 @@
         }
       }
     });
+    socket.on('objectRemoved', (tokenId: string) => {
+      tokens = tokens.filter(t => t.id !== tokenId);
+      if (selectedToken && selectedToken.id === tokenId) {
+        selectedToken = null;
+      }
+    });
 
     // 画面サイズに合わせて初期位置を調整（中央表示）
     if (tabletopElement) {
@@ -235,6 +248,14 @@
     showPanelSelectModal  = true;
   }
 
+  // オブジェクトを削除する
+  function deleteObject(tokenId: string) {
+    socket.emit('removeObject', { roomId, tokenId });
+  }
+
+  onMount(() => {
+  });
+
   // アライメントを変更する関数（将来的にメニューから呼ぶ）
   function updateAlignment(tokenId: string, alignment: TokenAlignment) {
     const token = tokens.find(t => t.id === tokenId);
@@ -277,11 +298,7 @@
         <button class="menu-item" onclick={() => { alert('フレームオブジェクトは未実装です'); closeMenu(); }}>フレームオブジェクトを追加</button>
         <button class="menu-item" onclick={openPanelSelectModal}>パネルオブジェクトを追加</button>
       {:else}
-        <button class="menu-item" onclick={() => { if(targetTokenId) updateAlignment(targetTokenId, 'top-left'); closeMenu(); }}>↖ 左上に配置</button>
-        <button class="menu-item" onclick={() => { if(targetTokenId) updateAlignment(targetTokenId, 'center'); closeMenu(); }}>・ 中央に配置</button>
-        <button class="menu-item" onclick={() => { if(targetTokenId) updateAlignment(targetTokenId, 'bottom-right'); closeMenu(); }}>↘ 右下に配置</button>
-        <button class="menu-item warning" onclick={() => { alert(`削除: ${targetTokenId}`); closeMenu(); }}>削除（未実装）</button>
-      {/if}
+        <button class="menu-item warning" onclick={() => { if(targetTokenId) deleteObject(targetTokenId); closeMenu(); }}>削除</button>      {/if}
     </div>
   </RightClickModal>
 {/if}
@@ -320,11 +337,14 @@
       <div
         class="token-box {token.alignment || 'center'}" 
         class:selected={selectedToken?.id === token.id}
+        class:locked={token.locked}
         style:left="{token.x}px"
         style:top="{token.y}px"
         style:width="{token.width}px"
         style:height="{token.height}px"
         style:z-index={token.z}
+        style:transform="rotate({token.rotation || 0}deg)" 
+        style:opacity={token.visible === false ? 0.5 : 1}
         onmousedown={(e) => handleMouseDown(e, token)}
         oncontextmenu={(e) => handleContextMenu(e, 'token', token)}
         role="button"
@@ -335,6 +355,12 @@
           alt="token"
           draggable="false"
         />
+        {#if token.locked}
+            <div class="status-icon lock-icon">🔒</div>
+        {/if}
+        {#if token.visible === false}
+            <div class="status-icon hide-icon">👁️‍🗨️</div>
+        {/if}
       </div>
     {/each}
   </div>
@@ -408,6 +434,28 @@
     object-fit: contain; /* アスペクト比を維持して収める */
     pointer-events: none; /* 画像自体のイベントは無視して箱で受ける */
   }
+  /* ロック時のカーソル */
+  .token-box.locked {
+    cursor: not-allowed;
+    border: 1px dashed rgba(255,255,255,0.3); /* ロックされていることを視覚的に示す */
+  }
+
+  /* ステータスアイコン */
+  .status-icon {
+    position: absolute;
+    top: -10px;
+    font-size: 1rem;
+    background: rgba(0,0,0,0.7);
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .lock-icon { right: -10px; }
+  .hide-icon { left: -10px; }
 
   /* 9方向配置のスタイル (Flexboxの組み合わせ) */
   .token-box.top-left      { justify-content: flex-start; align-items: flex-start; }

@@ -154,6 +154,17 @@ io.on('connection', (socket) => {
     }
   });
 
+  // オブジェクトを削除する
+  socket.on('removeObject', ({ roomId, tokenId }) => {
+    if (rooms[roomId]) {
+      const index = rooms[roomId].tokens.findIndex(t => t.id === tokenId);
+      if (index !== -1) {
+        rooms[roomId].tokens.splice(index, 1);
+        io.to(roomId).emit('objectRemoved', tokenId);
+      }
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('ユーザーが切断しました。 ID:', socket.id);
   });

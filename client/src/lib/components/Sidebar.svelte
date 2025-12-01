@@ -15,6 +15,13 @@
     selectedToken.alignment = align;
     update();
   }
+
+  // トグル切り替え用
+  function toggleBool(prop: 'locked' | 'visible') {
+    if (!selectedToken) return;
+    selectedToken[prop] = !selectedToken[prop];
+    update();
+  }
 </script>
 
 <div class="sidebar-container">
@@ -42,6 +49,29 @@
           <span>H</span>
           <input type="number" bind:value={selectedToken.height} onchange={update} />
         </div>
+      </div>
+      <div class="row">
+        <div class="input-wrap">
+          <label for="prop-rot">回転</label>
+          <input id="prop-rot" type="number" bind:value={selectedToken.rotation} onchange={update} placeholder="0" />
+          <span>deg</span>
+        </div>
+      </div>
+      <div class="row button-row">
+        <button 
+            class:active={selectedToken.locked} 
+            onclick={() => toggleBool('locked')}
+            aria-label="ロック切り替え"
+        >
+            {selectedToken.locked ? '🔒 ロック中' : '🔓 ロック解除'}
+        </button>
+        <button 
+            class:active={selectedToken.visible === false} 
+            onclick={() => toggleBool('visible')}
+            aria-label="表示切り替え"
+        >
+            {selectedToken.visible === false ? '👁️‍🗨️ 非表示' : '👁️ 表示中'}
+        </button>
       </div>
     </div>
 
@@ -164,5 +194,14 @@
     font-size: 0.9rem;
     text-align: center;
     margin-top: 2rem;
+  }
+
+  .button-row {
+    margin-top: 0.5rem;
+  }
+  .button-row button {
+    flex: 1;
+    font-size: 0.8rem;
+    padding: 0.4rem;
   }
 </style>
