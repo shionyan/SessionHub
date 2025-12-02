@@ -18,7 +18,7 @@ app.get('/healthz', (req, res) => {
 const io = new Server(httpServer, {
     cors: {
         // 本番環境のフロントエンドURLを追加
-        origin: ["http://localhost:5173", process.env.CORS_ORIGIN],
+        origin: ["http://localhost:5173", process.env.CORS_ORIGIN || "https://session-hub-mu.vercel.app"],
         methods: ["GET", "POST"]
     }
 });
