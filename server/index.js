@@ -7,14 +7,15 @@ import sharp from 'sharp';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const app = express();
 const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
     cors: {
-        // Viteのデフォルトのポート
-        origin: "http://localhost:5173",
+        // 本番環境のフロントエンドURLを追加
+        origin: ["http://localhost:5173", "https://your-app-name.vercel.app"],
         methods: ["GET", "POST"]
     }
 });
@@ -22,6 +23,16 @@ const io = new Server(httpServer, {
 // #region アップロードされたファイルの管理
 const uploadsDir = './uploads';
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+
+// R2クライアントの初期化
+const R2 = new S3Client({
+  region: "auto",
+  endpoint: process.env.R2_ENDPOINT, // 環境変数から読み込む
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,         // 環境変数
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY, // 環境変数
+  },
+});
 
 // #region 暗号化 
 const algorithm = 'aes-256-cbc';
@@ -64,26 +75,30 @@ const upload = multer({
 
 // #region ファイルアップロードのAPI
 app.post('/update', upload.single('image'), async (req, res) => {
-  // ファイルが見つからない場合はステータスコード400
-  if (!req.file) return res.status(400).send({ message: 'ファイルが選択されていません。'});
+  if (!req.file) return res.status(400).send({ message: 'ファイルなし'});
   try {
     // アップロードされた画像をWebPに変換する
     const quality = 80;
-    const webpBuffer = await sharp(req.file.buffer)
-      .webp({ quality: quality}).toBuffer();
+    const webpBuffer = await sharp(req.file.buffer).webp({ quality: 80 }).toBuffer();
 
     // 暗号化
     const encryptedBuffer = encrypt(webpBuffer);
 
-    // ファイルを保存する
+    // R2へアップロード
     const fileName = `${Date.now()}.webp.encrypted`;
-    const filePath = path.join(uploadsDir, fileName);
-    fs.writeFileSync(filePath, encryptedBuffer);
+    await R2.send(new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME, // 環境変数
+      Key: fileName,
+      Body: encryptedBuffer,
+      ContentType: 'application/octet-stream',
+    }));
+    
+    // 返却するURL等は設計に合わせて調整（今回はファイル名だけでOKかも）
+    res.status(200).send({ message: 'OK', filePath: fileName });
 
-    res.status(200).send({ message: 'ファイルをアップロードしました。'});
   } catch (error) {
-    console.error('アップロード処理エラー:', error);
-    res.status(500).send({message: 'ファイルの処理中にエラーが発生しました。'});
+    console.error(error);
+    res.status(500).send({message: 'Error'});
   }
 });
 // #endregion ファイルアップロードのAPI
