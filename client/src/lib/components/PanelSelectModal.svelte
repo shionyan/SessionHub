@@ -49,7 +49,8 @@
 
     try {
       // サーバーへのアップロード処理
-      const response = await fetch('http://localhost:3000/upload', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const response = await fetch(`${API_URL}/update`, {
         method: 'POST',
         body: formData,
       });
