@@ -11,6 +11,9 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const app = express();
 const httpServer = createServer(app);
+app.get('/healthz', (req, res) => {
+  res.status(200).send('OK');
+});
 
 const io = new Server(httpServer, {
     cors: {
@@ -92,7 +95,7 @@ app.post('/update', upload.single('image'), async (req, res) => {
       Body: encryptedBuffer,
       ContentType: 'application/octet-stream',
     }));
-    
+
     // 返却するURL等は設計に合わせて調整（今回はファイル名だけでOKかも）
     res.status(200).send({ message: 'OK', filePath: fileName });
 
