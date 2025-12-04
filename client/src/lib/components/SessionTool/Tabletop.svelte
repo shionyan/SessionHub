@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy  } from 'svelte';
-  import { socket } from '../../socket';
-  import type { SceneObject, ImageType, TokenAlignment } from '../../types';
+  import { socket } from '$lib/socket';
+  import type { SceneObject, ImageType, TokenAlignment } from '$lib/types';
   import RightClickModal from './RightClickModal.svelte';
   import PanelSelectModal from './PanelSelectModal.svelte';
 

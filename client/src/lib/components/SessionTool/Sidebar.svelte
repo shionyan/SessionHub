@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { socket } from '../socket';
-  import type { SceneObject, TokenAlignment } from '../types';
+  import { socket } from '$lib/socket';
+  import type { SceneObject, TokenAlignment } from '$lib/types';
   let { roomId, selectedToken = $bindable(null) } = $props();
 
   // 更新処理
