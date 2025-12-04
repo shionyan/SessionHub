@@ -1,11 +1,11 @@
 <script lang="ts">
-  import Sidebar from './lib/components/Sidebar.svelte';
-  import Tabletop from './lib/components/Tabletop.svelte';
-  import Topbar from './lib/components/Topbar.svelte';
+  import Sidebar from '$SessionTool/Sidebar.svelte';
+  import Tabletop from '$SessionTool/Tabletop.svelte';
+  import Topbar from '$SessionTool/Topbar.svelte';
   import { onMount } from 'svelte';
-  import { supabase } from './lib/supabaseClient';
-  import { socket } from './lib/socket';
-  import type { SceneObject } from './lib/types';
+  import { supabase } from '$lib/supabaseClient';
+  import { socket } from '$lib/socket';
+  import type { SceneObject } from '$lib/types';
   import type { User } from '@supabase/supabase-js';
 
   // URLからルームIDを取得する

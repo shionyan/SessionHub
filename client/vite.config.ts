@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       $lib: path.resolve(__dirname, './src/lib'),
+      $SessionTool: path.resolve(__dirname, '$lib/components/SessionTool'),
     },
   },
 })
