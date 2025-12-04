@@ -19,7 +19,8 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "$lib/*": ["src/lib/*"]
+      "$lib/*": ["src/lib/*"],
+      "$SessionTool/*":["scr/lib/components/SessionTool/*"],
     },
   },
   "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte"]
