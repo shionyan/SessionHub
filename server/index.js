@@ -188,7 +188,8 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; 
+
 httpServer.listen(PORT, () => {
-    console.log(`サーバーがポート${PORT}で起動しました。\nhttp:localhost:${PORT}`)
+    console.log(`サーバーがポート${PORT}で起動しました。`)
 })
