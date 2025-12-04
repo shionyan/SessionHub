@@ -37,11 +37,14 @@ let user: User | null = $state(null);
     return () => subscription.unsubscribe();
   });
   // Googleログイン処理
-  async function signInWithGoogle() {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-    });
-  }
+async function signInWithGoogle() {
+  await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin 
+    }
+  });
+}
 
   // ログアウト処理
   async function signOut() {
