@@ -18,23 +18,24 @@
   let roomName = $state('部屋を読み込み中...');
   let initialTokens: SceneObject[] = $state([]);
   let selectedToken: SceneObject | null = $state(null);
-  let user: User | null = $state(null);
+let user: User | null = $state(null);
 
-  // 起動時にログイン状態をチェック
   onMount(() => {
-    // 現在のセッションを取得
+    console.log("🚀 アプリ起動: ログインチェック開始");
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("📦 セッション取得結果:", session);
       user = session?.user ?? null;
+      console.log("👤 ユーザー状態:", user ? "ログイン済み" : "未ログイン");
     });
 
-    // ログイン・ログアウトの変更を監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("🔄 状態変更イベント:", _event);
       user = session?.user ?? null;
     });
 
     return () => subscription.unsubscribe();
   });
-
   // Googleログイン処理
   async function signInWithGoogle() {
     await supabase.auth.signInWithOAuth({
