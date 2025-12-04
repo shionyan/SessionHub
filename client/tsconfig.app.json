@@ -13,6 +13,7 @@
      */
     "allowJs": true,
     "checkJs": true,
+    "types": ["vite/client"],
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true

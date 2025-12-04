@@ -6,6 +6,7 @@
   import { supabase } from './lib/supabaseClient';
   import { socket } from './lib/socket';
   import type { SceneObject } from './lib/types';
+  import type { User } from '@supabase/supabase-js';
 
   // URLからルームIDを取得する
   // もしIDがなければ、'default-room'に入る
