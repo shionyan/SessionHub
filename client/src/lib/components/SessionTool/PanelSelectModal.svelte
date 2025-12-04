@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { ImageAsset, ImageType } from '../types';
+  import type { ImageAsset, ImageType } from '../../types';
 
   export let showModal: boolean;
 

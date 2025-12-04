@@ -3,6 +3,7 @@
   import Tabletop from './lib/components/Tabletop.svelte';
   import Topbar from './lib/components/Topbar.svelte';
   import { onMount } from 'svelte';
+  import { supabase } from './lib/supabaseClient';
   import { socket } from './lib/socket';
   import type { SceneObject } from './lib/types';
 
@@ -16,31 +17,53 @@
   let roomName = $state('部屋を読み込み中...');
   let initialTokens: SceneObject[] = $state([]);
   let selectedToken: SceneObject | null = $state(null);
+  let user: User | null = $state(null);
 
+  // 起動時にログイン状態をチェック
   onMount(() => {
-    socket.on('connect', () => {
-      console.log('サーバーに接続しました。ルームに参加します...');
-      // サーバーにルームへの参加を伝える
-      socket.emit('joinRoom', roomId);
+    // 現在のセッションを取得
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      user = session?.user ?? null;
     });
 
-    socket.on('roomData', (data) => {
-      roomName = data.roomName;
-      initialTokens = data.tokens;
-      console.log(`ルーム'${data.roomName}'のデータを受信しました。`);
+    // ログイン・ログアウトの変更を監視
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      user = session?.user ?? null;
     });
+
+    return () => subscription.unsubscribe();
   });
+
+  // Googleログイン処理
+  async function signInWithGoogle() {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+    });
+  }
+
+  // ログアウト処理
+  async function signOut() {
+    await supabase.auth.signOut();
+  }
 </script>
 
-<div class="app-container">
-  <div class="main-content">
-    <Topbar {roomName}/>
-    <Tabletop {roomId} {initialTokens} bind:selectedToken={selectedToken}/>
+{#if !user}
+  <div class="login-container">
+    <h1>SessionHubへようこそ</h1>
+    <button onclick={signInWithGoogle}>Googleでログイン</button>
   </div>
-  <div class="sidebar-wrapper">
-    <Sidebar {roomId} bind:selectedToken={selectedToken} />
+{:else}
+  <div class="app-container">
+    <div class="main-content">
+      <Topbar roomName={roomName} />
+      <Tabletop {roomId} {initialTokens} bind:selectedToken={selectedToken}/>
+    </div>
+    <div class="sidebar-wrapper">
+      <Sidebar {roomId} bind:selectedToken={selectedToken} />
+      <button onclick={signOut} class="logout-btn">ログアウト</button>
+    </div>
   </div>
-</div>
+{/if}
 
 <style>
   :global(body) {
@@ -59,5 +82,13 @@
     display: flex;
     flex-direction: column;
     position: relative; /* Topbar の位置の基準点となります */
+  }
+  .login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    color: white;
   }
 </style>
